@@ -166,14 +166,14 @@ def evaluate(telemetry: dict, baseline_cm=None, limits: dict = None,
         plain = ("Something is very close to the side of the bin. This looks like "
                  "water leaking in near the wall. Please go and see the wall.")
 
-    elif delta_h is not None and delta_h > dh_limit:
+    elif delta_h is not None and abs(delta_h) > dh_limit:
         # Headspace movement is evaluated before the humidity rules: a level change
         # is unexplained by damp air and needs its own evidence trail.
         state, risk = S4, "MEDIUM-HIGH"
-        rule = f"headspace change {delta_h:+.1f} cm > {dh_limit} cm limit"
+        rule =         f"absolute headspace change {abs(delta_h):.1f} cm > {dh_limit} cm limit"
         evidence = [
             f"Headspace reading {dist:.1f} cm vs baseline {baseline_cm:.1f} cm",
-            f"Change of {delta_h:+.1f} cm exceeds the {dh_limit} cm limit",
+        f"Change of {delta_h:+.1f} cm exceeds the ±{dh_limit} cm limit",
             "Consistent with stock displacement or settling, or a moved surface probe",
             "Unexpected stock displacement / headspace change - not an identification of cause",
         ]
@@ -278,6 +278,7 @@ def evaluate(telemetry: dict, baseline_cm=None, limits: dict = None,
         "facts": {
             "temp": temp, "rh": rh, "emc_estimate": emc, "dew_point": dew,
             "fork_raw": fork, "ldr_raw": ldr, "distance_cm": dist,
+            "headspace_cm": dist,
             "delta_height_cm": delta_h,
             "moisture_stress_hours": m_h, "thermal_stress_hours": t_h,
         },

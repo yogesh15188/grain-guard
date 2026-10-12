@@ -19,6 +19,28 @@ BAUD = int(os.environ.get("GRAINGUARD_SERIAL_BAUD", "9600"))
 RETRY_SECONDS = max(1.0, float(os.environ.get("GRAINGUARD_SERIAL_RETRY_SECONDS", "5")))
 STALE_SECONDS = max(2.0, float(os.environ.get("GRAINGUARD_SERIAL_STALE_SECONDS", "15")))
 FIELDS = ("temp", "rh", "fork_raw", "ldr_raw", "distance_cm")
+STATUS_LED_ON = b"G"
+STATUS_LED_OFF = b"g"
+
+
+def status_led_command(result: dict) -> bytes:
+    """Illuminate the board LED only for a complete, validated safe reading."""
+    if not isinstance(result, dict):
+        return STATUS_LED_OFF
+    facts = result.get("facts") or {}
+    if (result.get("status_led_safe") is True
+            and not result.get("invalid_channels")
+            and all(isinstance(facts.get(key), (int, float))
+                    for key in ("temp", "rh", "emc_estimate", "fork_raw",
+                                "ldr_raw", "distance_cm"))
+            and -10 <= facts["temp"] <= 70
+            and 0 <= facts["rh"] <= 100
+            and 5 <= facts["emc_estimate"] <= 20
+            and 0 <= facts["fork_raw"] <= 1023
+            and 0 <= facts["ldr_raw"] <= 1023
+            and facts["distance_cm"] >= 0):
+        return STATUS_LED_ON
+    return STATUS_LED_OFF
 
 
 def parse_line(line: str):
@@ -109,7 +131,8 @@ class SerialWorker(threading.Thread):
                     continue
                 packet = parse_line(raw.decode("utf-8", "ignore"))
                 if packet:
-                    self.on_packet(packet, "LIVE")
+                    result = self.on_packet(packet, "LIVE")
+                    ser.write(status_led_command(result))
                     last_packet = time.monotonic()
         finally:
             ser.close()

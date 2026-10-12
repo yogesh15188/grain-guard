@@ -7,7 +7,7 @@ from unittest.mock import patch
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "src", "backend"))
 
-from serial_worker import SerialWorker, parse_line  # noqa: E402
+from serial_worker import SerialWorker, parse_line, status_led_command  # noqa: E402
 
 
 class FakeSerial:
@@ -16,12 +16,17 @@ class FakeSerial:
     def __init__(self, lines):
         self.lines = iter(lines)
         self.closed = False
+        self.commands = []
 
     def readline(self):
         return next(self.lines, b"")
 
     def close(self):
         self.closed = True
+
+    def write(self, command):
+        self.commands.append(command)
+        return len(command)
 
 
 class SerialWorkerChecks(unittest.TestCase):
@@ -61,7 +66,26 @@ class SerialWorkerChecks(unittest.TestCase):
 
         self.assertEqual(len(packets), 1)
         self.assertEqual(packets[0][1], "LIVE")
+        self.assertEqual(serial.commands, [b"g"])
         self.assertTrue(serial.closed)
+
+    def test_status_led_requires_every_sensor_and_safe_engine_state(self):
+        safe = {
+            "state": "S0_IDLE_SAFE",
+            "risk": "LOW",
+            "status_led_safe": True,
+            "invalid_channels": [],
+            "facts": {
+                "temp": 27.0, "rh": 55.0, "emc_estimate": 12.0,
+                "fork_raw": 900, "ldr_raw": 20, "distance_cm": 12.0,
+            },
+        }
+        self.assertEqual(status_led_command(safe), b"G")
+        unsafe = dict(safe, state="S1_ATMOSPHERIC_INGRESS", risk="HIGH")
+        unsafe["status_led_safe"] = False
+        self.assertEqual(status_led_command(unsafe), b"g")
+        invalid = dict(safe, invalid_channels=["distance_cm"])
+        self.assertEqual(status_led_command(invalid), b"g")
 
     def test_worker_retries_after_initial_serial_failure(self):
         worker = SerialWorker(lambda packet, source: None)

@@ -123,8 +123,8 @@ Missing or invalid fields are reported, never guessed, and never crash the app.
 
 ### Connect an IoT controller
 
-The included [sketch.ino](./firmware/sketch.ino) runs on an Arduino UNO R4
-Minima and emits one newline-terminated `DATA` record every two seconds over
+The included [sketch.ino](./firmware/sketch/sketch.ino) runs on an Arduino UNO R4
+Minima and emits one newline-terminated `DATA` record every second over
 USB serial at **9600 baud**. GrainGuard accepts that firmware format directly:
 
 ```text
@@ -159,6 +159,7 @@ For a Wi-Fi controller, POST the same JSON object to `/api/telemetry` with
 The server binds to `127.0.0.1` by default. For a trusted local network, set
 `GRAINGUARD_HOST=0.0.0.0` and allow the chosen port through the host firewall;
 the controller can then post to `http://<computer-lan-ip>:8000/api/telemetry`.
+
 ---
 
 ## How the decision is made
@@ -241,3 +242,10 @@ control in the console to export the latest readings, decisions, alert causes,
 event history, operator acknowledgments, and ledger-integrity status. The
 export includes the newest 500 telemetry records and newest 500 events (plus
 all acknowledgments); the report states the full record counts.
+
+The board's built-in LED turns on only when the backend confirms a complete,
+valid, low-risk reading. The firmware reports a failed DHT11 read as `-999.0`
+and an ultrasonic timeout as `-1.0`. The backend marks those channels invalid
+instead of treating them as sensor values, and the LED stays off.
+At the start of a live run, the first valid ultrasonic reading establishes a
+fresh headspace baseline while the earlier audit history is retained.

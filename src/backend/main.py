@@ -46,6 +46,7 @@ STATE = {
     "last_ts": None,
     "last_event_id": None,
     "baseline_cm": 15.0,
+    "live_baseline_set": False,
     "limits": {},
     "offline_mode": False,
     "unverified_ack": None,
@@ -109,6 +110,28 @@ def run_alerts(result: dict, extra: dict = None, now: float = None):
                                        "top": None, "error": str(exc)[:120]}
 
 
+def status_led_safe(result: dict) -> bool:
+    """Return true only when all live channels and configured safety checks pass."""
+    if not isinstance(result, dict) or result.get("state") != engine.S0 \
+            or result.get("risk") != "LOW" or result.get("invalid_channels"):
+        return False
+    facts = result.get("facts") or {}
+    limits = STATE["limits"]
+    try:
+        return (
+            facts["temp"] <= limits["temp_limit"]
+            and facts["rh"] <= limits["rh_limit"]
+            and facts["emc_estimate"] <= limits["emc_ingress"]
+            and facts["fork_raw"] >= limits["fork_loaded"]
+            and facts["ldr_raw"] < limits["ldr_anomaly"]
+            and facts["distance_cm"] >= 0
+            and abs(facts["delta_height_cm"]) <= limits["delta_height_cm"]
+            and not (result.get("alerts") or STATE["alerts"]).get("alerts")
+        )
+    except (KeyError, TypeError):
+        return False
+
+
 def process_telemetry(packet: dict, source: str, hold: bool = False) -> dict:
     """THE single entry point into physics + engine + ledger."""
     sample_time = engine.timestamp_epoch(packet.get("timestamp"))
@@ -125,8 +148,27 @@ def process_telemetry(packet: dict, source: str, hold: bool = False) -> dict:
         STATE["source_detail"] = source
         STATE["mode"] = "LIVE" if source in ("LIVE", "FILE") else "SIMULATION"
 
+        distance = packet.get("distance_cm")
+        started_live_baseline = (
+            source == "LIVE"
+            and not STATE["live_baseline_set"]
+            and isinstance(distance, (int, float))
+            and not isinstance(distance, bool)
+            and 0 <= distance <= 1000
+        )
+        if started_live_baseline:
+            STATE["baseline_cm"] = float(distance)
+            STATE["live_baseline_set"] = True
+            engine.STRESS.reset()
+
         result = engine.evaluate(packet, STATE["baseline_cm"], STATE["limits"],
                                  sample_time=sample_time)
+        if started_live_baseline:
+            STATE["last_event_id"] = db.log_event(
+                "LIVE_BASELINE", result,
+                {"distance_cm": STATE["baseline_cm"],
+                 "note": "Baseline captured from first valid ultrasonic reading"},
+            )
         previous = STATE["last_result"]
         STATE["last_result"] = result
         db.log_telemetry(packet, result, source)
@@ -146,6 +188,10 @@ def process_telemetry(packet: dict, source: str, hold: bool = False) -> dict:
     result["event_id"] = STATE["last_event_id"]
     result["explanation"] = slm_forensics.explain(result)
     result["alerts"] = run_alerts(result, now=sample_time)
+    result["status_led_safe"] = status_led_safe(result)
+    with lock:
+        if STATE["last_result"] is not None:
+            STATE["last_result"]["status_led_safe"] = result["status_led_safe"]
     return result
 
 
@@ -256,6 +302,7 @@ def get_status():
         result["limits"] = STATE["limits"]
         result["unverified_ack"] = STATE["unverified_ack"]
         last_ts = STATE["last_ts"]
+        result["status_led_safe"] = status_led_safe(result)
     age = (time.time() - last_ts) if last_ts else None
     if result:
         result["seconds_since_last"] = round(age, 1) if age is not None else None
@@ -376,10 +423,12 @@ def startup():
 
     def on_packet(packet, mode):
         try:
-            process_telemetry(packet, mode)
+            result = process_telemetry(packet, mode)
             STATE["pipeline_error"] = None
+            return result
         except Exception as exc:               # noqa: BLE001 - keep the worker alive, but report failure
             STATE["pipeline_error"] = str(exc)[:200]
+            return None
 
     mock = {"temp": 27.2, "rh": 61.0, "fork_raw": 890, "ldr_raw": 22, "distance_cm": 15.0}
     worker = SerialWorker(on_packet, mock_packet=mock)

@@ -134,6 +134,16 @@ m_pkt = {
     "fork": mat("pkt_fork", (0.1, 1, 0.5), emit=(0.05, 1, 0.4), emit_str=6.0),
 }
 
+# poster-style colored label materials (B: sensor labels)
+m_lbl_blue   = mat("lbl_blue",   (0.25, 0.65, 1.0), emit=(0.15, 0.55, 1.0), emit_str=2.2)
+m_lbl_green  = mat("lbl_green",  (0.2, 0.95, 0.5),  emit=(0.1, 0.9, 0.4),   emit_str=2.2)
+m_lbl_orange = mat("lbl_orange", (1.0, 0.6, 0.15),  emit=(1.0, 0.5, 0.08),  emit_str=2.2)
+m_lbl_red    = mat("lbl_red",    (1.0, 0.3, 0.3),   emit=(1.0, 0.2, 0.2),   emit_str=2.2)
+m_lbl_purple = mat("lbl_purple", (0.7, 0.4, 1.0),   emit=(0.6, 0.3, 1.0),   emit_str=2.2)
+m_lbl_teal   = mat("lbl_teal",   (0.15, 0.9, 0.85), emit=(0.1, 0.85, 0.8),  emit_str=2.2)
+m_lbl_gray   = mat("lbl_gray",   (0.75, 0.78, 0.85), emit=(0.65, 0.7, 0.8), emit_str=1.6)
+m_chip_bg    = mat("chip_bg",    (0.03, 0.04, 0.06), rough=0.5)
+
 # ============================================================ L1 PHYSICAL
 bpy.ops.mesh.primitive_plane_add(size=50, location=(0, 0, -0.02))
 gnd = bpy.context.active_object
@@ -190,6 +200,54 @@ wire("w_usonic", [(-3.3, -3.7, 1.35), (-2.0, -2.8, 3.3), (0.5, -1.6, 3.4), (0.5,
 wire("w_ldr", [(-3.2, -3.8, 1.3), (-1.0, -3.6, 3.5), (3.0, -3.0, 3.5), (4.1, -0.5, 3.2), (4.36, 0.5, 2.5)], m_wire)
 wire("w_fork", [(-3.5, -3.9, 1.0), (-2.8, -3.4, 0.5), (-1.4, -2.6, 0.45), (-0.5, -1.9, 0.52)], m_wire)
 
+# ---------------- extra hardware from the poster (B) ----------------
+# DHT11 module on the back wall (temp & RH)
+box("dht11_body", (0.5, 0.12, 0.7), (2.8, 3.05, 2.95), m_pcb)
+box("dht11_grid", (0.3, 0.06, 0.3), (2.8, 2.97, 3.0), m_dark)
+sph("dht11_led", 0.04, (2.8, 2.96, 2.62), m_pkt["rh"])
+wire("w_dht", [(-3.3, -3.7, 1.35), (-1.0, -3.9, 3.6), (2.2, -1.5, 3.6), (2.8, 2.7, 3.1)], m_wire)
+
+# Grain-moisture FC-28 probe poking out the front face of the grain bulk
+box("fc28_body", (0.5, 0.35, 0.06), (0.3, -2.42, 1.4), m_pcb, rot=(R(-90), 0, 0))
+cyl("fc28_prong1", 0.03, 0.3, (0.2, -2.6, 1.4), m_metal, rot=(R(90), 0, 0))
+cyl("fc28_prong2", 0.03, 0.3, (0.4, -2.6, 1.4), m_metal, rot=(R(90), 0, 0))
+wire("w_fc28", [(-3.4, -3.8, 1.2), (-1.5, -3.2, 1.5), (0.3, -2.6, 1.45)], m_wire)
+
+# Battery pack + Bluetooth module next to the controller
+box("battery", (0.9, 0.55, 0.35), (-3.4, -2.9, 1.15), m_dark, rot=(R(65), 0, R(-15)))
+box("battery_label", (0.7, 0.05, 0.2), (-3.4, -2.96, 1.24), m_lbl_green, rot=(R(65), 0, R(-15)))
+box("bt_module", (0.55, 0.4, 0.08), (-4.6, -3.7, 1.15), m_pcb, rot=(R(65), 0, R(-15)))
+sph("bt_led", 0.04, (-4.6, -3.78, 1.28), m_lbl_blue)
+wire("w_bt", [(-4.0, -3.8, 1.25), (-4.3, -3.75, 1.2)], m_wire)
+
+# ---- poster-style sensor callout labels + leader lines ----
+def callout(name, body, anchor, label, m, size=0.26):
+    """anchor = sensor position; label = where the text floats."""
+    text(name, body, label, size, m, rot=(R(90), 0, 0))
+    wire(name + "_lead", [anchor, ((anchor[0] + label[0]) / 2,
+                                    min(anchor[1], label[1]) - 0.4,
+                                    (anchor[2] + label[2]) / 2 + 0.2),
+                          (label[0], label[1] + 0.15, label[2] - size * 0.7)],
+         m, r=0.018)
+
+# labels sit in front of the shed (y < -3.6) so the camera sees them
+callout("lbl_usonic", "HC-SR04  Ultrasonic", (0.5, -1.0, 3.25),
+        (1.9, -4.6, 4.15), m_lbl_purple)
+callout("lbl_dht11", "DHT11  Temp & RH", (2.8, 3.0, 3.0),
+        (5.9, -3.4, 3.9), m_lbl_blue)
+callout("lbl_ldr", "LDR  Light / Shutter", (4.5, 0.5, 2.45),
+        (6.3, -3.4, 2.7), m_lbl_orange)
+callout("lbl_probe", "Grain Temp  DS18B20", (-1.5, 0.5, 2.9),
+        (-4.3, -4.6, 3.5), m_lbl_red)
+callout("lbl_fc28", "Grain Moisture  FC-28", (0.3, -2.5, 1.4),
+        (2.4, -4.9, 1.5), m_lbl_green)
+callout("lbl_forkp", "Fork Probe  Dunnage", (-0.5, -1.9, 0.52),
+        (-2.9, -4.9, 0.85), m_lbl_teal)
+callout("lbl_ctrl", "Arduino / ESP32  +  Battery 11.1V", (-3.4, -3.9, 1.15),
+        (-4.9, -5.4, 2.25), m_lbl_gray, size=0.24)
+callout("lbl_bt", "Bluetooth  Local Sync", (-4.6, -3.7, 1.15),
+        (-6.9, -4.6, 1.35), m_lbl_blue, size=0.22)
+
 # ============================================================ L2 EVIDENCE
 # glowing packets rising from each sensor toward the physics slab
 pkt_x = {"temp": -1.5, "rh": -1.15, "dist": 0.5, "ldr": 4.3, "fork": -0.5}
@@ -214,8 +272,16 @@ for k in pkt_x:
 
 # ============================================================ L3 PHYSICS
 slab = box("physics_slab", (7.0, 4.5, 0.55), (0, 0, 5.6), m_glass)
-text("lbl_physics", "PHYSICS  ·  EMC  ·  DEW  ·  dH", (0, -2.3, 5.6), 0.42,
+text("lbl_physics", "PHYSICS  ·  EMC  ·  DEW  ·  dH", (0, -2.3, 6.15), 0.42,
      m_txt, rot=(R(90), 0, 0))
+# poster-style live metric chips across the slab face
+metrics = [("-2.55", "26.4°C"), ("-0.85", "58.2% RH"),
+           ("0.85", "12.8% moisture"), ("2.55", "420 ppm CO2")]
+for xs, body in metrics:
+    x = float(xs)
+    box(f"chip_{xs}", (1.5, 0.12, 0.5), (x, -2.28, 5.6), m_chip_bg)
+    text(f"chip_txt_{xs}", body, (x, -2.36, 5.6), 0.24, m_txt,
+         rot=(R(90), 0, 0))
 # raw in / derived out markers
 text("raw_in", "raw in", (-3.6, -2.3, 6.15), 0.3, m_txt_dim)
 text("derived_out", "derived out", (3.4, -2.3, 6.15), 0.3, m_txt_dim)
@@ -295,7 +361,11 @@ for name, z in layers:
     text("rail_" + name[:1], name, (-6.4, 0, z), 0.4, m_txt, rot=(R(90), 0, R(90)))
 
 # title
-text("title", "GRAINGUARD", (0, 3.5, 11.9), 0.8, m_txt_gold, rot=(R(90), 0, 0))
+text("title", "GRAIN-GUARD", (0, 3.5, 11.9), 0.8, m_txt_gold, rot=(R(90), 0, 0))
+text("subtitle", "Smart Grain Storage Monitoring System", (0, 3.5, 11.15), 0.32,
+     m_txt, rot=(R(90), 0, 0))
+text("tagline", "Because every grain counts.", (0, -3.45, 0.55), 0.3,
+     m_txt_dim, rot=(R(90), 0, 0))
 
 # ============================================================ LIGHTS + CAMERA
 bpy.ops.object.light_add(type='SUN', location=(6, -8, 14))

@@ -203,8 +203,10 @@ function renderStatus(payload) {
     hw.textContent = 'HARDWARE OFFLINE — SIMULATION MODE';
     hw.className = 'hwflag';
   } else if (/connected/i.test(detail)) {
-    hw.textContent = 'HARDWARE LIVE';
-    hw.className = 'hwflag ok';
+    hw.textContent = payload.result.status_led_safe
+      ? 'HARDWARE LIVE · BOARD LED ON'
+      : 'HARDWARE LIVE · BOARD LED OFF';
+    hw.className = payload.result.status_led_safe ? 'hwflag ok' : 'hwflag';
   } else if (/connecting/i.test(detail)) {
     hw.textContent = 'CONNECTING TO HARDWARE';
     hw.className = 'hwflag';
@@ -240,9 +242,11 @@ function renderStatus(payload) {
   $('vTemp').textContent = fmt(f.temp);
   $('vRh').textContent = fmt(f.rh);
   $('vEmc').textContent = fmt(f.emc_estimate);
-  $('vDh').textContent = f.delta_height_cm == null ? '—'
-    : (f.delta_height_cm > 0 ? '+' : '') + fmt(f.delta_height_cm);
-  $('fDh').textContent = `baseline ${fmt(payload.baseline_cm)} cm`;
+  $('vDh').textContent = f.distance_cm == null ? '—'
+    : fmt(Math.max(0, f.distance_cm));
+  $('fDh').textContent = f.delta_height_cm == null
+    ? 'waiting for valid baseline'
+    : `change from baseline ${fmt(f.delta_height_cm)} cm`;
 
   const tL = LIMITS.temp_limit ?? 28, rhL = LIMITS.rh_limit ?? 65;
   const eL = LIMITS.emc_ingress ?? 14, dL = LIMITS.delta_height_cm ?? 5;
@@ -250,8 +254,9 @@ function renderStatus(payload) {
   $('mTemp').className = 'card metric ' + band(f.temp, tL);
   $('mRh').className = 'card metric ' + band(f.rh, rhL);
   $('mEmc').className = 'card metric ' + band(f.emc_estimate, eL);
-  $('mDh').className = 'card metric ' + (f.delta_height_cm == null ? ''
-    : f.delta_height_cm > dL ? 'bad' : f.delta_height_cm > dL / 2 ? 'warn' : 'ok');
+  $('mDh').className = 'card metric ' + (f.distance_cm == null ? ''
+    : Math.abs(f.delta_height_cm || 0) > dL ? 'bad'
+      : Math.abs(f.delta_height_cm || 0) > dL / 2 ? 'warn' : 'ok');
 
   /* why / evidence / checks */
   $('ruleText').textContent = r.rule || '—';
@@ -421,52 +426,6 @@ async function triggerScenario(id, btn) {
   loadHistory();
 }
 
-/* ---------------- manual telemetry entry ---------------- */
-async function submitReading(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const submit = $('readingSubmit');
-  const values = Object.fromEntries(new FormData(form).entries());
-  const packet = Object.fromEntries(
-    Object.entries(values).map(([key, value]) => [key, Number(value)])
-  );
-
-  submit.disabled = true;
-  $('readingMessage').textContent = 'Sending reading through the risk engine…';
-  try {
-    const response = await fetch('/api/telemetry', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(packet),
-    });
-    if (!response.ok) {
-      const detail = await response.text();
-      throw new Error(detail || `Request failed (${response.status})`);
-    }
-    const result = await response.json();
-    const statusResponse = await fetch('/api/status');
-    const status = statusResponse.ok ? await statusResponse.json() : {};
-    renderStatus({
-      ...status,
-      result,
-      mode: result.mode || 'LIVE',
-      limits: status.limits || LIMITS,
-      facility: status.facility || { name: 'Demo Rice Storage' },
-      server_time: result.timestamp,
-    });
-    form.reset();
-    $('readingMessage').textContent =
-      `Reading saved. Engine result: ${result.state} / ${result.risk}.`;
-    runPipeline();
-    loadHistory();
-    loadEvents();
-  } catch (error) {
-    $('readingMessage').textContent = `Could not process reading: ${error.message}`;
-  } finally {
-    submit.disabled = false;
-  }
-}
-
 /* ---------------- acknowledge ---------------- */
 async function acknowledge(verified) {
   const note = $('ackNote').value || '';
@@ -528,8 +487,6 @@ function init() {
 
   $('ackVerified').addEventListener('click', () => acknowledge(true));
   $('ackUnverified').addEventListener('click', () => acknowledge(false));
-  $('readingForm').addEventListener('submit', submitReading);
-
   /* alert controls */
   const st = $('soundToggle');
   if (st) {

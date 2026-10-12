@@ -26,6 +26,7 @@
     <a href="#monitoring">Monitoring</a>
     <a href="#how">How It Works</a>
     <a href="#technology">Technology</a>
+    <a class="btn btn-ghost btn-sm" href="/viewer3d.html">3D View</a>
     <a class="btn btn-primary btn-sm" href="#console">Launch Console</a>
   </nav>
   <div class="navright">
@@ -152,32 +153,8 @@
     <div class="card metric" id="mTemp"><span class="m-label">Temperature</span><span class="m-val" id="vTemp">&mdash;</span><span class="m-unit">&deg;C</span></div>
     <div class="card metric" id="mRh"><span class="m-label">Relative Humidity</span><span class="m-val" id="vRh">&mdash;</span><span class="m-unit">%</span></div>
     <div class="card metric" id="mEmc"><span class="m-label">EMC Estimate</span><span class="m-val" id="vEmc">&mdash;</span><span class="m-unit">%</span><span class="m-foot">air estimate, not grain moisture</span></div>
-    <div class="card metric" id="mDh"><span class="m-label">Headspace Change</span><span class="m-val" id="vDh">&mdash;</span><span class="m-unit">cm</span><span class="m-foot" id="fDh">baseline &mdash;</span></div>
+    <div class="card metric" id="mDh"><span class="m-label">Ultrasonic Headspace</span><span class="m-val" id="vDh">&mdash;</span><span class="m-unit">cm</span><span class="m-foot" id="fDh">distance from sensor</span></div>
   </section>
-  <section class="card panel" aria-labelledby="readingTitle">
-    <h3 class="ph" id="readingTitle">Enter a sensor reading <span class="tag">manual</span></h3>
-    <p class="srcnote">Enter the values from your sensors. Submit sends them through the risk engine and saves the reading in history.</p>
-    <form class="reading-form" id="readingForm">
-      <label>Temperature (&deg;C)
-        <input name="temp" type="number" min="-10" max="70" step="any" required>
-      </label>
-      <label>Relative humidity (%)
-        <input name="rh" type="number" min="0" max="100" step="any" required>
-      </label>
-      <label>Fork raw (0&ndash;1023)
-        <input name="fork_raw" type="number" min="0" max="1023" step="1" required>
-      </label>
-      <label>Light raw (0&ndash;1023)
-        <input name="ldr_raw" type="number" min="0" max="1023" step="1" required>
-      </label>
-      <label>Distance (cm)
-        <input name="distance_cm" type="number" min="0" max="1000" step="any" required>
-      </label>
-      <button class="btn btn-primary btn-sm" id="readingSubmit" type="submit">Process &amp; save reading</button>
-    </form>
-    <p class="srcnote" id="readingMessage" role="status" aria-live="polite">All five sensor values are required.</p>
-  </section>
-
   <div class="grid2">
     <div class="col">
       <section class="card panel">
@@ -276,7 +253,7 @@
           <tr><th>Temperature</th><td id="rTemp">&mdash;</td><th>EMC estimate</th><td id="rEmc">&mdash;</td></tr>
           <tr><th>Relative humidity</th><td id="rRh">&mdash;</td><th>Dew point</th><td id="rDew">&mdash;</td></tr>
           <tr><th>Fork raw</th><td id="rFork">&mdash;</td><th>LDR raw</th><td id="rLdr">&mdash;</td></tr>
-          <tr><th>Distance</th><td id="rDist">&mdash;</td><th>&Delta;h</th><td id="rDh">&mdash;</td></tr>
+          <tr><th>Headspace</th><td id="rDist">&mdash;</td><th>Change from baseline</th><td id="rDh">&mdash;</td></tr>
           <tr><th>Moisture stress h</th><td id="rMs">&mdash;</td><th>Thermal stress h</th><td id="rTs">&mdash;</td></tr>
         </table>
         <div class="rstate">

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "author": "GrainGuard",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-arduino-uno", "id": "uno", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-dht22", "id": "dht", "top": -150, "left": -260, "attrs": { "temperature": "26", "humidity": "58" } },
+    { "type": "wokwi-potentiometer", "id": "forkPot", "top": 150, "left": -260, "attrs": {} },
+    { "type": "wokwi-photoresistor-sensor", "id": "ldr", "top": 280, "left": -260, "attrs": {} },
+    { "type": "wokwi-hc-sr04", "id": "us", "top": -180, "left": 200, "attrs": { "distance": "15" } },
+    { "type": "wokwi-buzzer", "id": "buzzer", "top": 180, "left": 220, "attrs": { "volume": "0.1" } },
+    { "type": "wokwi-resistor", "id": "fanR", "top": 300, "left": 160, "rotate": 90, "attrs": { "value": "330" } },
+    { "type": "wokwi-led", "id": "fanLed", "top": 330, "left": 220, "attrs": { "color": "blue" } }
+  ],
+  "connections": [
+    [ "dht:VCC", "uno:5V", "red", [] ],
+    [ "dht:GND", "uno:GND.1", "black", [] ],
+    [ "dht:SDA", "uno:2", "green", [] ],
+
+    [ "forkPot:VCC", "uno:5V", "red", [] ],
+    [ "forkPot:GND", "uno:GND.1", "black", [] ],
+    [ "forkPot:SIG", "uno:A0", "gold", [] ],
+
+    [ "ldr:VCC", "uno:5V", "red", [] ],
+    [ "ldr:GND", "uno:GND.1", "black", [] ],
+    [ "ldr:AO", "uno:A1", "gold", [] ],
+
+    [ "us:VCC", "uno:5V", "red", [] ],
+    [ "us:GND", "uno:GND.1", "black", [] ],
+    [ "us:TRIG", "uno:9", "orange", [] ],
+    [ "us:ECHO", "uno:10", "cyan", [] ],
+
+    [ "buzzer:1", "uno:6", "green", [] ],
+    [ "buzzer:2", "uno:GND.2", "black", [] ],
+
+    [ "fanR:1", "uno:5", "blue", [] ],
+    [ "fanR:2", "fanLed:A", "blue", [] ],
+    [ "fanLed:C", "uno:GND.2", "black", [] ]
+  ],
+  "dependencies": {}
+}

@@ -63,6 +63,25 @@ r = engine.evaluate({"temp": "hot", "rh": None, "fork_raw": 99999}, BASE, LIM)
 fails += 0 if r["invalid_channels"] else 1
 print(f"{'PASS' if r['invalid_channels'] else 'FAIL'}  invalid_input       -> invalid={r['invalid_channels']}")
 
+# Ultrasonic timeouts must stay invalid, never become a fabricated distance.
+bad_ultrasonic = engine.evaluate(
+    {"temp": 26.0, "rh": 55.0, "fork_raw": 900, "ldr_raw": 20,
+     "distance_cm": -1.0}, BASE, LIM)
+ok = "distance_cm" in bad_ultrasonic["invalid_channels"] \
+    and bad_ultrasonic["facts"]["headspace_cm"] is None
+fails += 0 if ok else 1
+print(f"{'PASS' if ok else 'FAIL'}  ultrasonic_timeout   -> "
+      f"headspace={bad_ultrasonic['facts']['headspace_cm']}")
+
+# Headspace movement in either direction is evaluated as an absolute change.
+negative_delta = engine.evaluate(
+    {"temp": 26.0, "rh": 55.0, "fork_raw": 900, "ldr_raw": 20,
+     "distance_cm": BASE - 6.0}, BASE, LIM)
+ok = negative_delta["state"] == "S4_PHYSICAL_ANOMALY"
+fails += 0 if ok else 1
+print(f"{'PASS' if ok else 'FAIL'}  negative_headspace_delta -> "
+      f"{negative_delta['state']} ({negative_delta['facts']['delta_height_cm']:+.1f} cm)")
+
 # File records use their recorded times for cumulative stress, not import speed.
 engine.STRESS.reset()
 first = engine.evaluate(
